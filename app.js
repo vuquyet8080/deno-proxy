@@ -21,10 +21,12 @@ app.post("/api/v1/proxy", async (req, res) => {
       data: body,
       validateStatus: () => true, // allow forwarding of all HTTP statuses
     });
-
+    const ipResponse = await axios.get("https://api.ipify.org?format=json");
+    const proxyIP = ipResponse.data.ip;
     res.status(200).json({
       status: response.status,
       // headers: response.headers,
+      proxyIP,
       data: response.data,
     });
   } catch (error) {
