@@ -6,6 +6,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/api/v1/ping", async (req, res) => {
+  try {
+    const ipResponse = await axios.get("https://api.ipify.org?format=json");
+    const proxyIP = ipResponse.data.ip;
+
+    res.status(200).json({
+      proxyIP,
+    });
+  } catch (error) {
+    console.log("🚀 ~ app.get ~ error:", error);
+  }
+});
+
 app.post("/api/v1/proxy", async (req, res) => {
   const { url, method, headers = {}, body } = req.body;
 
@@ -21,12 +34,11 @@ app.post("/api/v1/proxy", async (req, res) => {
       data: body,
       validateStatus: () => true, // allow forwarding of all HTTP statuses
     });
-    const ipResponse = await axios.get("https://api.ipify.org?format=json");
-    const proxyIP = ipResponse.data.ip;
+
     res.status(200).json({
       status: response.status,
       // headers: response.headers,
-      proxyIP,
+
       data: response.data,
     });
   } catch (error) {
