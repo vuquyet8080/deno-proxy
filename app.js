@@ -1,53 +1,54 @@
-const express = require("express");
-const cors = require("cors");
-const axios = require("axios");
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+async function handler(req) {
+  const { pathname } = new URL(req.url);
 
-app.get("/api/v1/ping", async (req, res) => {
-  try {
-    const ipResponse = await axios.get("https://api.ipify.org?format=json");
-    const proxyIP = ipResponse.data.ip;
+  if (pathname === "/api/v1/ping") {
+    const ipRes = await fetch("https://api.ipify.org?format=json");
+    const ipData = await ipRes.json();
 
-    res.status(200).json({
-      proxyIP,
+    return new Response(JSON.stringify({ proxyIP: ipData.ip }), {
+      headers: { "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.log("🚀 ~ app.get ~ error:", error);
-  }
-});
-
-app.post("/api/v1/proxy", async (req, res) => {
-  const { url, method, headers = {}, body } = req.body;
-
-  if (!url || !method) {
-    return res.status(400).json({ error: "Missing url or method" });
   }
 
-  try {
-    const response = await axios.request({
-      url,
-      method,
-      headers,
-      data: body,
-      validateStatus: () => true, // allow forwarding of all HTTP statuses
-    });
+  if (pathname === "/api/v1/proxy" && req.method === "POST") {
+    const body = await req.json();
+    const { url, method, headers = {}, body: requestBody } = body;
 
-    res.status(200).json({
-      status: response.status,
-      // headers: response.headers,
+    if (!url || !method) {
+      return new Response(JSON.stringify({ error: "Missing url or method" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-      data: response.data,
-    });
-  } catch (error) {
-    console.error("🔥 Proxy error:", error.message);
-    res.status(500).json({ error: error.message || "Proxy error" });
+    try {
+      const proxyRes = await fetch(url, {
+        method,
+        headers,
+        body: requestBody ? JSON.stringify(requestBody) : undefined,
+      });
+
+      const data = await proxyRes.text();
+      return new Response(
+        JSON.stringify({
+          status: proxyRes.status,
+          data: data,
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
-});
 
-const PORT = process.env.PORT || 3006;
-app.listen(PORT, () => {
-  console.log(`🚀 Axios proxy server running on port ${PORT}`);
-});
+  return new Response("Not found", { status: 404 });
+}
+
+serve(handler);
